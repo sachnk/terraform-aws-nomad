@@ -31,7 +31,7 @@
     },
     {
       "ami_name": "nomad-consul-docker-amazon-linux-{{isotime | clean_ami_name}}",
-      "ami_description": "An Amazon Linux AMI that has Nomad, Consul and Docker installed.",
+      "ami_description": "An Amazon Linux 2 AMI that has Nomad, Consul and Docker installed.",
       "instance_type": "t2.micro",
       "name": "amazon-linux-ami",
       "region": "{{user `aws_region`}}",
@@ -40,7 +40,7 @@
         "filters": {
           "virtualization-type": "hvm",
           "architecture": "x86_64",
-          "name": "*amzn-ami-hvm-*",
+          "name": "*amzn2-ami-hvm-*",
           "block-device-mapping.volume-type": "gp2",
           "root-device-type": "ebs"
         },

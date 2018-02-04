@@ -23,6 +23,7 @@ function print_usage {
   echo -e "  --server\t\tIf set, run in server mode. Optional. At least one of --server or --client must be set."
   echo -e "  --client\t\tIf set, run in client mode. Optional. At least one of --server or --client must be set."
   echo -e "  --num-servers\t\tThe number of servers to expect in the Nomad cluster. Required if --server is true."
+  echo -e "  --datacenter\t\tThe name of the datacenter the nomad agent should be assigned to. Default: The availability zone the agent is starting up."
   echo -e "  --config-dir\t\tThe path to the Nomad config folder. Optional. Default is the absolute path of '../config', relative to this script."
   echo -e "  --data-dir\t\tThe path to the Nomad data folder. Optional. Default is the absolute path of '../data', relative to this script."
   echo -e "  --bin-dir\t\tThe path to the folder with Nomad binary. Optional. Default is the absolute path of the parent folder of this script."
@@ -128,6 +129,7 @@ function generate_nomad_config {
   instance_ip_address=$(get_instance_ip_address)
   instance_region=$(get_instance_region)
   availability_zone=$(get_instance_availability_zone)
+  local readonly datacenter="${6:-${availability_zone}}"
 
   local server_config=""
   if [[ "$server" == "true" ]]; then
@@ -152,7 +154,7 @@ EOF
 
   log_info "Creating default Nomad config file in $config_path"
   cat > "$config_path" <<EOF
-datacenter = "$availability_zone"
+datacenter = "$datacenter"
 name       = "$instance_id"
 region     = "$instance_region"
 bind_addr  = "0.0.0.0"
@@ -174,6 +176,7 @@ EOF
   chown "$user:$user" "$config_path"
 }
 
+# OUTDATED
 function generate_supervisor_config {
   local readonly supervisor_config_path="$1"
   local readonly nomad_config_dir="$2"
@@ -203,6 +206,13 @@ EOF
 }
 
 function start_nomad {
+    log_info "Enabling and starting Nomad as systemd service"
+    sudo systemctl enable nomad.service
+    sudo systemctl start nomad.service
+}
+
+# OUTDATED - nomad is started using systemctl of Amazon Linux 2
+function start_nomad_supervisorctl {
   log_info "Reloading Supervisor config and starting Nomad"
   supervisorctl reread
   supervisorctl update
@@ -218,6 +228,7 @@ function run {
   local server="false"
   local client="false"
   local num_servers=""
+  local datacenter=""
   local config_dir=""
   local data_dir=""
   local bin_dir=""
@@ -241,6 +252,10 @@ function run {
         num_servers="$2"
         shift
         ;;
+      --datacenter)
+          datacenter="$2"
+          shift
+          ;;
       --config-dir)
         assert_not_empty "$key" "$2"
         config_dir="$2"
@@ -341,11 +356,12 @@ function run {
   if [[ "$skip_nomad_config" == "true" ]]; then
     log_info "The --skip-nomad-config flag is set, so will not generate a default Nomad config file."
   else
-    generate_nomad_config "$server" "$client" "$num_servers" "$config_dir" "$user"
+    generate_nomad_config "$server" "$client" "$num_servers" "$config_dir" "$user" "$datacenter"
   fi
 
-  generate_supervisor_config "$SUPERVISOR_CONFIG_PATH" "$config_dir" "$data_dir" "$bin_dir" "$log_dir" "$user" "$use_sudo"
+  # OUTDATED: generate_supervisor_config "$SUPERVISOR_CONFIG_PATH" "$config_dir" "$data_dir" "$bin_dir" "$log_dir" "$user" "$use_sudo"
   start_nomad
+  # OUTDATED: start_nomad_supervisorctl
 }
 
 run "$@"
