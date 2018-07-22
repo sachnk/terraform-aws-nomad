@@ -12,11 +12,6 @@
 # Packer template in the Consul AWS Module.
 # ---------------------------------------------------------------------------------------------------------------------
 
-provider "aws" {
-  profile = "${var.aws_profile}"
-  region  = "${var.aws_region}"
-}
-
 # Terraform 0.9.5 suffered from https://github.com/hashicorp/terraform/issues/14399, which causes this template the
 # conditionals in this template to fail.
 terraform {
@@ -38,10 +33,10 @@ terraform {
 # /_ci/publish-amis-in-new-account.md for more information.
 # ---------------------------------------------------------------------------------------------------------------------
 data "aws_ami" "nomad_consul" {
-  most_recent      = true
+  most_recent = true
 
   # If we change the AWS Account in which test are run, update this value.
-  owners     = ["562637147889"]
+  owners = ["562637147889"]
 
   filter {
     name   = "virtualization-type"
@@ -66,7 +61,7 @@ data "aws_ami" "nomad_consul" {
 module "nomad_servers" {
   # When using these modules in your own templates, you will need to use a Git URL with a ref attribute that pins you
   # to a specific version of the modules, such as the following example:
-  # source = "git::git@github.com:hashicorp/terraform-aws-nomad.git//modules/nomad-cluster?ref=v0.1.0"
+  # source = "github.com/hashicorp/terraform-aws-nomad//modules/nomad-cluster?ref=v0.1.0"
   source = "../../modules/nomad-cluster"
 
   cluster_name  = "${var.nomad_cluster_name}-server"
@@ -85,7 +80,8 @@ module "nomad_servers" {
 
   # To make testing easier, we allow requests from any IP address here but in a production deployment, we strongly
   # recommend you limit this to the IP address ranges of known, trusted servers inside your VPC.
-  allowed_ssh_cidr_blocks     = ["0.0.0.0/0"]
+  allowed_ssh_cidr_blocks = ["0.0.0.0/0"]
+
   allowed_inbound_cidr_blocks = ["0.0.0.0/0"]
   ssh_key_name                = "${var.ssh_key_name}"
 }
@@ -97,7 +93,7 @@ module "nomad_servers" {
 # ---------------------------------------------------------------------------------------------------------------------
 
 module "consul_iam_policies_servers" {
-  source = "git::git@github.com:hashicorp/terraform-aws-consul.git//modules/consul-iam-policies?ref=v0.1.0"
+  source = "github.com/hashicorp/terraform-aws-consul//modules/consul-iam-policies?ref=v0.3.1"
 
   iam_role_id = "${module.nomad_servers.iam_role_id}"
 }
@@ -122,7 +118,7 @@ data "template_file" "user_data_nomad_server" {
 # ---------------------------------------------------------------------------------------------------------------------
 
 module "consul_servers" {
-  source = "git::git@github.com:hashicorp/terraform-aws-consul.git//modules/consul-cluster?ref=v0.1.0"
+  source = "github.com/hashicorp/terraform-aws-consul//modules/consul-cluster?ref=v0.3.1"
 
   cluster_name  = "${var.consul_cluster_name}-server"
   cluster_size  = "${var.num_consul_servers}"
@@ -140,7 +136,8 @@ module "consul_servers" {
 
   # To make testing easier, we allow Consul and SSH requests from any IP address here but in a production
   # deployment, we strongly recommend you limit this to the IP address ranges of known, trusted servers inside your VPC.
-  allowed_ssh_cidr_blocks     = ["0.0.0.0/0"]
+  allowed_ssh_cidr_blocks = ["0.0.0.0/0"]
+
   allowed_inbound_cidr_blocks = ["0.0.0.0/0"]
   ssh_key_name                = "${var.ssh_key_name}"
 }
@@ -166,14 +163,19 @@ data "template_file" "user_data_consul_server" {
 module "nomad_clients" {
   # When using these modules in your own templates, you will need to use a Git URL with a ref attribute that pins you
   # to a specific version of the modules, such as the following example:
-  # source = "git::git@github.com:hashicorp/terraform-aws-nomad.git//modules/nomad-cluster?ref=v0.0.1"
+  # source = "github.com/hashicorp/terraform-aws-nomad//modules/nomad-cluster?ref=v0.0.1"
   source = "../../modules/nomad-cluster"
 
   cluster_name  = "${var.nomad_cluster_name}-client"
   instance_type = "t2.micro"
 
+  # Give the clients a different tag so they don't try to join the server cluster
+  cluster_tag_key   = "nomad-clients"
+  cluster_tag_value = "${var.nomad_cluster_name}"
+
   # To keep the example simple, we are using a fixed-size cluster. In real-world usage, you could use auto scaling
   # policies to dynamically resize the cluster in response to load.
+
   min_size         = "${var.num_nomad_clients}"
   max_size         = "${var.num_nomad_clients}"
   desired_capacity = "${var.num_nomad_clients}"
@@ -186,7 +188,8 @@ module "nomad_clients" {
 
   # To make testing easier, we allow Consul and SSH requests from any IP address here but in a production
   # deployment, we strongly recommend you limit this to the IP address ranges of known, trusted servers inside your VPC.
-  allowed_ssh_cidr_blocks     = ["0.0.0.0/0"]
+  allowed_ssh_cidr_blocks = ["0.0.0.0/0"]
+
   allowed_inbound_cidr_blocks = ["0.0.0.0/0"]
   ssh_key_name                = "${var.ssh_key_name}"
 }
@@ -198,7 +201,7 @@ module "nomad_clients" {
 # ---------------------------------------------------------------------------------------------------------------------
 
 module "consul_iam_policies_clients" {
-  source = "git::git@github.com:hashicorp/terraform-aws-consul.git//modules/consul-iam-policies?ref=v0.1.0"
+  source = "github.com/hashicorp/terraform-aws-consul//modules/consul-iam-policies?ref=v0.3.1"
 
   iam_role_id = "${module.nomad_clients.iam_role_id}"
 }
@@ -231,3 +234,5 @@ data "aws_vpc" "default" {
 data "aws_subnet_ids" "default" {
   vpc_id = "${data.aws_vpc.default.id}"
 }
+
+data "aws_region" "current" {}
